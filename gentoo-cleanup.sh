@@ -1,8 +1,34 @@
 #!/bin/bash
 
-equery -Cq list '*' |grep /|sed -e "s:-r[[:digit:]]*::;s:_p[[:digit:]]::;s:_pre[[:digit:]]::;s:_alpha[[:digit:]]::;s:_beta[[:digit:]]::;s:_rc[[:digit:]]::;s:\.[[:alnum:]]*$::g;s:\.[[:alnum:]]*$::g;s:\.[[:alnum:]]*$::g;s:\.[[:alnum:]]*$::g;s:-[[:digit:]][[:alnum:]]*$::;s:[[:space:]]::g"|sort -u > installed
-emerge -ep --newuse world|grep ebuild.*/|sed -e "s:^\[ebuild .......\] ::;s: .*$::g;s: ::g;s:-r[[:digit:]]*::;s:_p[[:digit:]]::;s:_pre[[:digit:]]::;s:_alpha[[:digit:]]::;s:_beta[[:digit:]]::;s:_rc[[:digit:]]::;s:\.[[:alnum:]]*$::g;s:\.[[:alnum:]]*$::g;s:\.[[:alnum:]]*$::g;s:\.[[:alnum:]]*$::g;s:-[[:digit:]][[:alnum:]]*$::;s:[[:space:]]::g;s:^.*$:^\0$:g"|sort -u > newworld
-cat installed |grep -vf newworld >toremove
+# regex to remove package version
+# it works from the end to the begining
+REGEX=""
+REGEX="${REGEX} s:-r[[:digit:]]*::;"
+REGEX="${REGEX} s:_p[[:digit:]]::;"
+REGEX="${REGEX} s:_pre[[:digit:]]::;"
+REGEX="${REGEX} s:_alpha[[:digit:]]::;"
+REGEX="${REGEX} s:_beta[[:digit:]]::;"
+REGEX="${REGEX} s:_rc[[:digit:]]::;"
+REGEX="${REGEX} s:(\.[[:alnum:]]*)+$::g;"
+REGEX="${REGEX} s:-[[:digit:]][[:alnum:]]*$::;"
+REGEX="${REGEX} s:[[:blank:]]::g;"
+
+# regex to remove emerge's output
+REGEX2=""
+REGEX2="${REGEX2} s:^\[ebuild........\] ::;"
+REGEX2="${REGEX2} s:[[:blank:]].*$::g;"
+
+# Get the list of installed packages
+equery -Cq list '*' |grep /|sed -re "${REGEX}"|sort -u > installed
+
+# Get the list of packages that emerge --empty-tree --newuse world
+# would install (anything not in this list should be ok to remove)
+emerge -ep --newuse world|grep ebuild.*/|sed -re "${REGEX2} ${REGEX}"|sort -u > newworld
+
+cat installed |grep --line-regexp -vf newworld > toremove
 wc -l installed newworld toremove
 cat toremove
+
+echo
+echo 'emerge -Ca `cat toremove`'
 
