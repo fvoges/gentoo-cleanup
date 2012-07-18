@@ -3,9 +3,9 @@
 # regex to remove package version
 # it works from the end to the begining
 REGEX=""
-REGEX="${REGEX} s:-r[[:digit:]]*::;"
-REGEX="${REGEX} s:_p[[:digit:]]::;"
-REGEX="${REGEX} s:_pre[[:digit:]]::;"
+REGEX="${REGEX} s:-r[[:digit:]]+::;"
+REGEX="${REGEX} s:_p[[:digit:]]+::;"
+REGEX="${REGEX} s:_pre[[:digit:]]+::;"
 REGEX="${REGEX} s:_alpha[[:digit:]]::;"
 REGEX="${REGEX} s:_beta[[:digit:]]::;"
 REGEX="${REGEX} s:_rc[[:digit:]]::;"
@@ -23,7 +23,7 @@ equery -Cq list '*' |grep /|sed -re "${REGEX}"|sort -u > installed
 
 # Get the list of packages that emerge --empty-tree --newuse world
 # would install (anything not in this list should be ok to remove)
-emerge -ep --newuse world|grep ebuild.*/|sed -re "${REGEX2} ${REGEX}"|sort -u > newworld
+emerge -ep --newuse --with-bdeps=y @world|grep ebuild.*/|sed -re "${REGEX2} ${REGEX}"|sort -u > newworld
 
 cat installed |grep --line-regexp -vf newworld > toremove
 wc -l installed newworld toremove
