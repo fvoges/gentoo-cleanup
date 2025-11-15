@@ -1,34 +1,35 @@
 #!/bin/bash
 
-# regex to remove package version
-# it works from the end to the begining
-REGEX=""
-REGEX="${REGEX} s:-r[[:digit:]]+::;"
-REGEX="${REGEX} s:_p[[:digit:]]+::;"
-REGEX="${REGEX} s:_pre[[:digit:]]+::;"
-REGEX="${REGEX} s:_alpha[[:digit:]]::;"
-REGEX="${REGEX} s:_beta[[:digit:]]::;"
-REGEX="${REGEX} s:_rc[[:digit:]]::;"
-REGEX="${REGEX} s:(\.[[:alnum:]]*)+$::g;"
-REGEX="${REGEX} s:-[[:digit:]][[:alnum:]]*$::;"
-REGEX="${REGEX} s:[[:blank:]]::g;"
-
-# regex to remove emerge's output
-REGEX2=""
-REGEX2="${REGEX2} s:^\[ebuild........\] ::;"
-REGEX2="${REGEX2} s:[[:blank:]].*$::g;"
-
 # Get the list of installed packages
-equery -Cq list '*' |grep /|sed -re "${REGEX}"|sort -u > installed
+echo "Getting list of installed packages"
+equery -Cq list --format '$cp' '*' |grep /|sort -u > installed
 
 # Get the list of packages that emerge --empty-tree --newuse world
 # would install (anything not in this list should be ok to remove)
-emerge -ep --newuse --with-bdeps=y @world|grep ebuild.*/|sed -re "${REGEX2} ${REGEX}"|sort -u > newworld
+echo "Getting list of necessary packages"
+emerge --columns --emptytree --newuse --pretend --quiet --with-bdeps=y @world|awk '{print $2}'|sort -u > newworld
 
 cat installed |grep --line-regexp -vf newworld > toremove
-wc -l installed newworld toremove
-cat toremove
+
+echo "Results:"
+wc --lines --total=never installed newworld toremove
 
 echo
-echo 'emerge -Ca `cat toremove`'
+
+if [ $(cat toremove|wc --lines) -gt 0 ]
+then
+  echo "Packages that can potentially be removed:"
+  cat toremove|awk '{print "  - " $1}'
+  echo
+  echo "WARNING: There's no guarantee that they're not required"
+
+  echo
+  echo "If you're happy with the list of packages to remove, run this command to remove them:"
+  echo
+  echo '  emerge -Ca `cat toremove`'
+else
+  echo "No packages to remove"
+fi
+
+echo
 
